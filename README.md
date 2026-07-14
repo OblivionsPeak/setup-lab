@@ -9,11 +9,18 @@ use it on a car, the smarter it gets about that car.
 
 ## How to use it
 
+**Web app (recommended): https://oblivionspeak.github.io/setup-lab/** — no
+install, always up to date, runs 100% in your browser (nothing is uploaded).
+
 1. Enable disk telemetry in iRacing (it's on by default; `alt+L` toggles).
 2. Drive a stint — **3 or more consecutive clean laps**. Longer is better:
    a full fuel stint gives degradation analysis a real signal.
-3. Launch `SetupLab.exe` — your browser opens at `http://localhost:4790`.
+3. Open the web app (or launch `SetupLab.exe` — same tool, local install).
 4. Drop in the `.ibt` file from `Documents\iRacing\telemetry\`.
+
+The web app keeps history + per-car learning in your browser's local storage;
+the EXE keeps them in `%LOCALAPPDATA%\SetupLab`. The analysis is identical —
+`tests/parity.mjs` asserts the JS engine matches the Python engine exactly.
 
 That's it. **No .sto file needed** — your full car setup is embedded in the
 telemetry file and Setup Lab reads it from there, so the analysis always matches
