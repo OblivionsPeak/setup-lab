@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Setup Lab — Stint Engineer</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header>
+  <div class="brand">
+    <span class="logo">SETUP<b>LAB</b></span>
+    <span class="tag">stint-based setup engineering &middot; Operation Motorsport</span>
+  </div>
+  <nav>
+    <button id="nav-analyze" class="active">Analyze</button>
+    <button id="nav-history">History</button>
+  </nav>
+</header>
+
+<main>
+  <section id="view-analyze">
+    <div id="dropzone">
+      <div class="dz-inner">
+        <div class="dz-icon">&#128203;</div>
+        <h2>Drop an iRacing telemetry file (.ibt)</h2>
+        <p>Drive a stint (3+ clean laps), then grab the file from<br>
+        <code>Documents\iRacing\telemetry\</code></p>
+        <p class="dz-hint">Your setup is read straight out of the telemetry — no .sto needed.</p>
+        <input type="file" id="file-input" accept=".ibt" hidden>
+        <button id="browse-btn">Browse…</button>
+      </div>
+    </div>
+    <div id="progress" hidden><div class="spinner"></div><p id="progress-text">Crunching stint…</p></div>
+    <div id="error" hidden></div>
+    <div id="results" hidden></div>
+  </section>
+
+  <section id="view-history" hidden>
+    <h2>Analyzed stints</h2>
+    <div id="history-list"></div>
+  </section>
+</main>
+
+<footer>Setup Lab runs 100% locally. Nothing leaves this PC.</footer>
+<script src="/static/app.js"></script>
+</body>
+</html>
