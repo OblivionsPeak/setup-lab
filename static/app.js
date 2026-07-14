@@ -127,6 +127,27 @@ function renderStint(root, s) {
   root.appendChild(cp2);
   drawBalanceChart(cp2.querySelector('canvas'), a.corners);
 
+  if (s.top_changes && s.top_changes.length) {
+    const box = el(`<div class="top-changes"><h3>Most recommended changes</h3>
+      <p class="tc-sub">Ranked across all findings this stint — consensus picks first.</p></div>`);
+    s.top_changes.forEach((t, i) => {
+      const arrow = t.direction > 0 ? '<span class="dir-up">▲</span>' : '<span class="dir-down">▼</span>';
+      const L = t.learned || { conf: 0.5, tries: 0, wins: 0 };
+      const badges = [];
+      if (t.n_findings > 1) badges.push(`<span class="tc-badge consensus">backed by ${t.n_findings} findings</span>`);
+      if (t.recurrence) badges.push(`<span class="tc-badge">recommended in ${t.recurrence.hits}/${t.recurrence.stints} recent stints with this car</span>`);
+      if (L.tries > 0) badges.push(`<span class="tc-badge ${L.conf >= 0.5 ? 'good' : 'bad'}">worked ${L.wins}/${L.tries}× on this car</span>`);
+      box.appendChild(el(`<div class="tc-row">
+        <span class="tc-rank">${i + 1}</span>
+        <div class="tc-body">
+          <div class="tc-change">${arrow} ${esc(t.knob.replace(/_/g, ' '))} — ${esc(t.size)}</div>
+          <div class="tc-why">for: ${t.symptoms.map(esc).join(' · ')}</div>
+          <div class="tc-badges">${badges.join(' ')}</div>
+        </div></div>`));
+    });
+    root.appendChild(box);
+  }
+
   if (!s.findings.length) {
     root.appendChild(el(`<div class="no-findings"><h3>No significant setup complaints found</h3>
       <p>This stint looks balanced and consistent. Chase pace with driving-line work, or bring a longer run for degradation analysis.</p></div>`));

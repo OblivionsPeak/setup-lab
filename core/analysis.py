@@ -171,12 +171,15 @@ def analyze_stint(channels, stint, corners, tick_rate):
 
     pct_ch = _ch(channels, 'LapDistPct')
     per_corner = []
-    half = max(3, len(laps) // 2)
     for c in corners:
         rows = [corner_metrics(channels, l, c, tick_rate) for l in laps]
         rows = [r for r in rows if r]
         if len(rows) < 3:
             continue
+        # first-half vs second-half split sized to the rows that actually
+        # survived for THIS corner — a fixed split can leave an empty slice
+        # (median of empty = NaN, which poisons the JSON response)
+        half = max(1, len(rows) // 2)
         slip_rows = [wheels.slip_metrics(channels, l, pct_ch, c) for l in laps]
         slip_rows = [r for r in slip_rows if r]
 

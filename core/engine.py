@@ -420,3 +420,38 @@ def diagnose(stint_a: dict, setup: dict) -> list:
 
     findings.sort(key=lambda f: -f['severity'])
     return findings
+
+
+def summarize(findings: list, recurrence: dict | None = None) -> list:
+    """Rank knob+direction pairs across all findings — the 'change these first' list.
+
+    Score = sum of proposing findings' severity, boosted by learned confidence
+    and by recurrence across recent stints (same car). A knob proposed by two
+    independent symptoms outranks one proposed by a single louder symptom.
+    """
+    agg = {}
+    for f in findings:
+        for p in f['proposals']:
+            key = (p['knob'], p['direction'])
+            a = agg.setdefault(key, {
+                'knob': p['knob'], 'direction': p['direction'], 'size': p['size'],
+                'symptoms': [], 'score': 0.0, 'current': p['current'],
+                'learned': p.get('learned'),
+            })
+            a['symptoms'].append(f['symptom'])
+            conf = (p.get('learned') or {}).get('conf', 0.5)
+            a['score'] += f['severity'] * (0.5 + conf)
+            if p.get('learned') and (a['learned'] or {}).get('tries', 0) < p['learned']['tries']:
+                a['learned'] = p['learned']
+    out = []
+    for a in agg.values():
+        rec = (recurrence or {}).get((a['knob'], a['direction']))
+        if rec:
+            a['recurrence'] = rec                      # {'hits': n, 'stints': m}
+            a['score'] *= 1.0 + min(rec['hits'] / max(rec['stints'], 1), 1.0) * 0.5
+        a['n_findings'] = len(a['symptoms'])
+        if a['n_findings'] > 1:
+            a['score'] *= 1.0 + 0.25 * (a['n_findings'] - 1)
+        out.append(a)
+    out.sort(key=lambda a: -a['score'])
+    return out[:5]

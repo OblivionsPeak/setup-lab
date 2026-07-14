@@ -143,6 +143,31 @@ def apply_learning(findings, conf):
     return findings
 
 
+def knob_recurrence(con, car, exclude_id=None, window=8):
+    """How often each (knob, direction) was recommended across recent stints of this car.
+
+    Returns {(knob, direction): {'hits': n, 'stints': m}} over the last
+    `window` stored stints (excluding the one being reported on).
+    """
+    q = 'SELECT id, findings_json FROM stints WHERE car=?'
+    args = [car]
+    if exclude_id is not None:
+        q += ' AND id<>?'
+        args.append(exclude_id)
+    q += ' ORDER BY id DESC LIMIT ?'
+    args.append(window)
+    rows = con.execute(q, args).fetchall()
+    counts, total = {}, len(rows)
+    for r in rows:
+        seen = set()
+        for f in json.loads(r['findings_json']):
+            for p in f['proposals']:
+                seen.add((p['knob'], p['direction']))
+        for key in seen:
+            counts[key] = counts.get(key, 0) + 1
+    return {k: {'hits': v, 'stints': total} for k, v in counts.items()}
+
+
 def recent_stints(con, limit=50):
     return [dict(r) for r in con.execute(
         'SELECT id, created, file_name, driver, car, track, stint_num FROM stints '

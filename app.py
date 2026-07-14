@@ -3,6 +3,7 @@
 Drop an .ibt telemetry file; get stint-level analysis and detailed,
 evidence-cited setup recommendations. Local only, no accounts, no network.
 """
+import math
 import os
 import socket
 import sys
@@ -11,10 +12,23 @@ import webbrowser
 
 from flask import Flask, jsonify, render_template, request
 
+
+def clean_json(o):
+    """Replace non-finite floats with None — json.dumps would emit literal
+    NaN/Infinity, which is invalid JSON and breaks the browser."""
+    if isinstance(o, dict):
+        return {k: clean_json(v) for k, v in o.items()}
+    if isinstance(o, list):
+        return [clean_json(v) for v in o]
+    if isinstance(o, float) and not math.isfinite(o):
+        return None
+    return o
+
 from core.ibt import parse_ibt_bytes
 from core.session import parse_session_info
 from core.stints import segment_laps, segment_stints
 from core.analysis import detect_corners, analyze_stint
+from core import engine as diagnose_mod
 from core.engine import diagnose
 from core import store
 
@@ -72,17 +86,21 @@ def analyze():
         graded = store.grade_against_prior(con, sid)
         conf = store.learned_confidence(con, meta['car'])
         findings = store.apply_learning(findings, conf)
+        recurrence = store.knob_recurrence(con, meta['car'], exclude_id=sid)
+        top = diagnose_mod.summarize(findings, recurrence)
         results.append({'stint_id': sid, 'stint_num': st['stint_num'],
-                        'analysis': analysis, 'findings': findings, 'graded': graded})
+                        'analysis': analysis, 'findings': findings,
+                        'top_changes': top, 'graded': graded})
     con.close()
 
     if not results:
         return jsonify({'error': 'Stints found but none had 3+ representative laps to analyze.'}), 400
 
-    return jsonify({'meta': {k: meta[k] for k in ('car', 'track', 'driver', 'setup_name', 'session_type')},
-                    'setup': meta['setup'],
-                    'n_corners': len(corners),
-                    'stints': results})
+    return jsonify(clean_json(
+        {'meta': {k: meta[k] for k in ('car', 'track', 'driver', 'setup_name', 'session_type')},
+         'setup': meta['setup'],
+         'n_corners': len(corners),
+         'stints': results}))
 
 
 @app.get('/api/history')
@@ -103,13 +121,16 @@ def stint_detail(sid):
         return jsonify({'error': 'not found'}), 404
     conf = store.learned_confidence(con, row['car'])
     findings = store.apply_learning(_json.loads(row['findings_json']), conf)
+    recurrence = store.knob_recurrence(con, row['car'], exclude_id=row['id'])
+    top = diagnose_mod.summarize(findings, recurrence)
     con.close()
-    return jsonify({'meta': {'car': row['car'], 'track': row['track'],
-                             'driver': row['driver'], 'setup_name': '', 'session_type': ''},
-                    'setup': _json.loads(row['setup_json']),
-                    'stints': [{'stint_id': row['id'], 'stint_num': row['stint_num'],
-                                'analysis': _json.loads(row['analysis_json']),
-                                'findings': findings, 'graded': []}]})
+    return jsonify(clean_json(
+        {'meta': {'car': row['car'], 'track': row['track'],
+                  'driver': row['driver'], 'setup_name': '', 'session_type': ''},
+         'setup': _json.loads(row['setup_json']),
+         'stints': [{'stint_id': row['id'], 'stint_num': row['stint_num'],
+                     'analysis': _json.loads(row['analysis_json']),
+                     'findings': findings, 'top_changes': top, 'graded': []}]}))
 
 
 def open_browser():

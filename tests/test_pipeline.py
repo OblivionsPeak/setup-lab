@@ -76,6 +76,14 @@ def main():
     assert conf, 'no learned confidence rows'
     print('\nlearned confidence:', {f'{k[1]}': round(v['conf'], 2) for k, v in conf.items()})
 
+    from core.engine import summarize
+    findings2 = store.apply_learning(findings2, conf)
+    recurrence = store.knob_recurrence(con, meta2['car'])
+    top = summarize(findings2, recurrence)
+    assert top, 'summarize returned no top changes'
+    assert any(t.get('recurrence') for t in top), 'expected recurrence badge from prior stint'
+    print('top changes:', [(t['knob'], t['n_findings'], t.get('recurrence')) for t in top[:3]])
+
     print('\nALL PIPELINE TESTS PASSED')
 
 
