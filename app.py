@@ -4,6 +4,7 @@ Drop an .ibt telemetry file; get stint-level analysis and detailed,
 evidence-cited setup recommendations. Local only, no accounts, no network.
 """
 import os
+import socket
 import sys
 import threading
 import webbrowser
@@ -115,6 +116,23 @@ def open_browser():
     webbrowser.open(f'http://localhost:{PORT}')
 
 
+def already_running():
+    # Werkzeug binds with SO_REUSEADDR, so on Windows a second instance would
+    # double-bind the port and silently lose traffic to the first — detect and bail.
+    s = socket.socket()
+    s.settimeout(0.5)
+    try:
+        s.connect(('127.0.0.1', PORT))
+        return True
+    except OSError:
+        return False
+    finally:
+        s.close()
+
+
 if __name__ == '__main__':
+    if already_running():
+        open_browser()          # an instance is already up — just show it
+        sys.exit(0)
     threading.Timer(1.0, open_browser).start()
     app.run(host='127.0.0.1', port=PORT, debug=False)
