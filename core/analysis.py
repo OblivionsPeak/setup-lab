@@ -6,6 +6,7 @@ works on any car without car-specific geometry constants.
 """
 import numpy as np
 from .stints import representative_laps
+from . import wheels
 
 G = 9.81
 
@@ -168,6 +169,7 @@ def analyze_stint(channels, stint, corners, tick_rate):
     slope = float(np.polyfit(lap_idx, lap_times, 1)[0])
     deg_per_lap = slope
 
+    pct_ch = _ch(channels, 'LapDistPct')
     per_corner = []
     half = max(3, len(laps) // 2)
     for c in corners:
@@ -175,6 +177,8 @@ def analyze_stint(channels, stint, corners, tick_rate):
         rows = [r for r in rows if r]
         if len(rows) < 3:
             continue
+        slip_rows = [wheels.slip_metrics(channels, l, pct_ch, c) for l in laps]
+        slip_rows = [r for r in slip_rows if r]
 
         def col(key):
             return np.array([r.get(key, 0.0) for r in rows])
@@ -184,18 +188,23 @@ def analyze_stint(channels, stint, corners, tick_rate):
         rev = col('steer_reversals')
         ms = col('min_speed')
 
-        entry = {
-            'understeer': float(np.median(spy)),
-            'understeer_drift': float(np.median(spy[half:]) - np.median(spy[:half])) / (np.median(spy[:half]) + 1e-6),
-        }
+        min_kph = float(np.median(ms) * 3.6)
+        wheel_stats = {}
+        if slip_rows:
+            for key in ('front_lock_frac', 'rear_lock_frac', 'abs_frac', 'wheelspin_frac'):
+                vals = [r[key] for r in slip_rows if key in r]
+                if vals:
+                    wheel_stats[key] = float(np.median(vals))
         per_corner.append({
+            **wheel_stats,
             'corner': c['id'],
             'pct_apex': c['pct_apex'],
             'direction': c['direction'],
-            'min_speed_kph': float(np.median(ms) * 3.6),
+            'speed_class': 'high' if min_kph > 170 else 'low' if min_kph < 110 else 'medium',
+            'min_speed_kph': min_kph,
             'min_speed_var': float(np.std(ms) * 3.6),
-            'understeer': entry['understeer'],
-            'understeer_drift': entry['understeer_drift'],
+            'understeer': float(np.median(spy)),
+            'understeer_drift': float(np.median(spy[half:]) - np.median(spy[:half])) / (np.median(spy[:half]) + 1e-6),
             'oversteer_frac': float(np.median(csf)),
             'oversteer_drift': float(np.median(csf[half:]) - np.median(csf[:half])),
             'nervousness': float(np.median(rev)),
@@ -211,7 +220,16 @@ def analyze_stint(channels, stint, corners, tick_rate):
     for c in per_corner:
         c['understeer_z'] = float((c['understeer'] - mu) / sd)
 
+    # Whole-stint wheel-level measurements (each None if channels absent)
+    platform = {
+        'roll_couple_front': wheels.roll_couple(channels, laps, corners, pct_ch, tick_rate),
+        'bottoming': wheels.bottoming(channels, laps, tick_rate),
+        'tires': wheels.tire_thermals(channels, laps, tick_rate),
+        'brakes': wheels.brake_bias_evidence(channels, laps),
+    }
+
     return {
+        'platform': platform,
         'n_laps_used': len(laps),
         'n_laps_total': stint['n_laps'],
         'best_lap': float(np.min(lap_times)),

@@ -23,6 +23,15 @@ for st in stints:
     if not a:
         print(f"stint {st['stint_num']}: too few clean laps to analyze")
         continue
+    p = a.get('platform') or {}
+    if p.get('roll_couple_front') is not None:
+        print(f"  platform: front roll share {100*p['roll_couple_front']:.0f}%")
+    if p.get('brakes'):
+        print(f"  brakes: measured front share {p['brakes']['front_share_pct']:.1f}% "
+              f"(dial {p['brakes']['dial']})")
+    for w, t in (p.get('tires') or {}).items():
+        print(f"  {w}: inner-outer {t['camber_delta']:+.0f}C, mid-vs-edges {t['middle_vs_edges']:+.0f}C, "
+              f"hot {t.get('hot_pressure_psi', 0):.1f} psi (build {t.get('pressure_build_psi', 0):+.1f})")
     fs = diagnose(a, meta['setup'])
     print(f"--- stint {st['stint_num']}: {a['n_laps_used']}/{a['n_laps_total']} laps, "
           f"best {a['best_lap']:.3f}, median {a['median_lap']:.3f}, "

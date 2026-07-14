@@ -96,6 +96,29 @@ function renderStint(root, s) {
     <div class="tile"><div class="v">${a.n_laps_used}/${a.n_laps_total}</div><div class="l">Clean laps used</div></div>
   </div>`));
 
+  const plat = a.platform || {};
+  if (plat.roll_couple_front != null || plat.brakes || plat.tires) {
+    let rows = '';
+    if (plat.roll_couple_front != null)
+      rows += `<div><span>Front roll share</span><b>${(100 * plat.roll_couple_front).toFixed(0)}%</b></div>`;
+    if (plat.brakes)
+      rows += `<div><span>Measured brake bias (front)</span><b>${plat.brakes.front_share_pct.toFixed(1)}%${plat.brakes.dial != null ? ' (dial ' + plat.brakes.dial.toFixed(1) + ')' : ''}</b></div>`;
+    let tireRows = '';
+    for (const w of ['LF', 'RF', 'LR', 'RR']) {
+      const t = (plat.tires || {})[w];
+      if (!t) continue;
+      tireRows += `<tr><td>${w}</td><td>${t.inner.toFixed(0)} / ${t.middle.toFixed(0)} / ${t.outer.toFixed(0)}</td>
+        <td>${t.camber_delta >= 0 ? '+' : ''}${t.camber_delta.toFixed(0)}°C</td>
+        <td>${t.middle_vs_edges >= 0 ? '+' : ''}${t.middle_vs_edges.toFixed(0)}°C</td>
+        <td>${t.hot_pressure_psi ? t.hot_pressure_psi.toFixed(1) + ' psi' : '—'}</td>
+        <td>${t.pressure_build_psi != null ? (t.pressure_build_psi >= 0 ? '+' : '') + t.pressure_build_psi.toFixed(1) : '—'}</td></tr>`;
+    }
+    const table = tireRows ? `<table class="tire-table"><thead><tr><th></th><th>in/mid/out °C</th>
+      <th>camber Δ</th><th>mid−edges</th><th>hot press</th><th>build</th></tr></thead><tbody>${tireRows}</tbody></table>` : '';
+    root.appendChild(el(`<div class="chart-panel"><h3>Measured platform (from per-wheel telemetry)</h3>
+      <div class="meta-bar" style="border:0;padding:6px 0;margin:0">${rows}</div>${table}</div>`));
+  }
+
   const cp = el('<div class="chart-panel"><h3>Lap times across the stint</h3><canvas height="170"></canvas></div>');
   root.appendChild(cp);
   drawLapChart(cp.querySelector('canvas'), a.lap_nums, a.lap_times);
@@ -131,6 +154,8 @@ function renderStint(root, s) {
         <div class="current">now: ${cur}</div>
         <div class="why">${esc(p.why)}</div>
         <div class="tradeoff">Trade-off: ${esc(p.tradeoff)}</div>
+        ${p.expect ? `<div class="expect">Expected: ${esc(p.expect)}</div>` : ''}
+        ${p.verify ? `<div class="verify">Verify next stint: ${esc(p.verify)}</div>` : ''}
       </div>`));
     });
     root.appendChild(card);
