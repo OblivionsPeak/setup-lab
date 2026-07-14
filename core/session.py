@@ -4,14 +4,21 @@ import yaml
 
 
 def _safe_yaml(text):
-    # iRacing session YAML can contain unquoted values with ':' or non-ASCII;
-    # sanitize the known offenders before parsing.
+    # iRacing session YAML usually parses as-is; try that first.
+    try:
+        doc = yaml.safe_load(text)
+        if isinstance(doc, dict):
+            return doc
+    except yaml.YAMLError:
+        pass
+    # Fallback: quote free-text values that can contain ':' or quotes.
+    # Only leaf keys with a non-empty inline value — never section headers.
     cleaned = []
     for line in text.splitlines():
-        if re.match(r'\s*(DriverSetupName|UserName|TeamName|AbbrevName|Initials|TrackName|TrackDisplayName|TrackDisplayShortName|TrackCity|TrackCountry|SessionName|SessionType|SessionSubType|WeekendOptions)\s*:', line):
-            key, _, val = line.partition(':')
-            val = val.strip().replace('"', "'")
-            line = f'{key}: "{val}"'
+        m = re.match(r'(\s*)(DriverSetupName|UserName|TeamName|AbbrevName|Initials|TrackName|TrackDisplayName|TrackDisplayShortName|TrackCity|TrackCountry|SessionName|SessionType|SessionSubType)(\s*):(.+)$', line)
+        if m and m.group(4).strip():
+            val = m.group(4).strip().replace('"', "'")
+            line = f'{m.group(1)}{m.group(2)}: "{val}"'
         cleaned.append(line)
     return yaml.safe_load('\n'.join(cleaned))
 
